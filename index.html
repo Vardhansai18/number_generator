@@ -26,7 +26,7 @@
         <input type="number" id="numberInput" placeholder="Enter a number" class="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Add</button>
       </form>
-      <button onclick="clearArray()" class="w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-600">Clear Numbers</button>
+      <button onclick="clearArray()" class="w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-600 mb-4">Clear Array</button>
     </div>
     <div class="combo">
       <h3 class="text-lg font-semibold mb-2 text-green-600">Valid Combinations & Results:</h3>
@@ -35,19 +35,40 @@
   </div>
 
   <script>
-    const knownCombinations = new Map([
-      [[1, 23].toString(), 30],
-      [[1, 30].toString(), 23],
-      [[23, 1].toString(), 30],
-      [[30, 1].toString(), 23],
-      [[9, 1].toString(), 14],
-      [[1, 9].toString(), 14],
-      [[1, 14].toString(), 9],
-      [[14, 1].toString(), 9],
-    ]);
+    const knownCombinations = new Map();
+
+    function addPermutationsToMap(a, b, result) {
+      const permutations = [
+        [[a, b], result],
+        [[b, a], result],
+        [[a, result], b],
+        [[result, a], b],
+        [[b, result], a],
+        [[result, b], a]
+      ];
+      permutations.forEach(([pair, res]) => {
+        knownCombinations.set(pair.toString(), res);
+      });
+    }
+
+    async function loadCSVAndParse() {
+      try {
+        const response = await fetch('combo_mappings.csv');
+        const text = await response.text();
+        const lines = text.trim().split('\n');
+        lines.shift(); // Remove header
+        lines.forEach(line => {
+          const [a, b, result] = line.split(',').map(Number);
+          addPermutationsToMap(a, b, result);
+        });
+        updateDisplay();
+      } catch (err) {
+        console.error("Failed to load CSV:", err);
+      }
+    }
 
     let array = [];
-    const maxArraySize = 10;
+    const maxArraySize = 15;
 
     function saveArray() {
       localStorage.setItem("comboArray", JSON.stringify(array));
@@ -75,14 +96,23 @@
 
       const results = document.getElementById("results");
       results.innerHTML = "";
+      const printed = new Set();
 
       for (let i = 0; i < array.length; i++) {
-        for (let j = i + 1; j < array.length; j++) {
-          const key = [array[i], array[j]].toString();
-          if (knownCombinations.has(key)) {
-            const li = document.createElement("li");
-            li.innerText = `(${array[i]}, ${array[j]}) → ${knownCombinations.get(key)}`;
-            results.appendChild(li);
+        for (let j = 0; j < array.length; j++) {
+          if (i !== j) {
+            const a = array[i];
+            const b = array[j];
+            const key = [a, b].toString();
+            const reverseKey = [b, a].toString();
+
+            if (knownCombinations.has(key) && !printed.has(key) && !printed.has(reverseKey)) {
+              const li = document.createElement("li");
+              li.innerText = `(${a}, ${b}) → ${knownCombinations.get(key)}`;
+              results.appendChild(li);
+              printed.add(key);
+              printed.add(reverseKey);
+            }
           }
         }
       }
@@ -118,7 +148,7 @@
     }
 
     loadArray();
-    updateDisplay();
+    loadCSVAndParse();
   </script>
 </body>
 </html>
